@@ -1,0 +1,33 @@
+groups:
+  - name: infrastructure-alerts
+    rules:
+
+      # 1. Available memory less than 100 MB
+      - alert: LowAvailableMemory
+        expr: node_memory_MemAvailable_bytes < 100 * 1024 * 1024
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Low available memory on {{ $labels.instance }}"
+          description: "Available memory is {{ $value | humanize }}B — below 100 MB threshold."
+
+      # 2. Used RAM more than 1 GB
+      - alert: HighUsedRAM
+        expr: (node_memory_MemTotal_bytes - node_memory_MemAvailable_bytes) > 1 * 1024 * 1024 * 1024
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "High RAM usage on {{ $labels.instance }}"
+          description: "Used RAM is {{ $value | humanize }}B — exceeds 1 GB threshold."
+
+      # 3. CPU usage for a service exceeds 10%
+      - alert: HighServiceCPU
+        expr: sum(rate(container_cpu_usage_seconds_total{container_label_com_docker_swarm_service_name!=""}[1m])) by (container_label_com_docker_swarm_service_name) > 0.10
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "High CPU usage for service {{ $labels.container_label_com_docker_swarm_service_name }}"
+          description: "CPU usage is {{ $value | humanizePercentage }} — exceeds 10% threshold."

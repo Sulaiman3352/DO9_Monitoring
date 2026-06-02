@@ -1,0 +1,45 @@
+# -*- mode: ruby -*-
+# vi: set ft=ruby :
+
+Vagrant.configure("2") do |config|
+  #config.vm.box = "ubuntu/jammy64"
+  config.vm.box = "cloud-image/ubuntu-24.04"
+  # Shared folder to exchange swarm tokens
+  config.vm.synced_folder "./scripts", "/home/vagrant/scripts", create: true
+  config.vm.synced_folder "../services", "/home/vagrant/services", create: true
+  config.vm.synced_folder "./docker", "/home/vagrant/docker", create: true
+
+  # Common Provider Configuration
+  config.vm.provider "virtualbox" do |vb|
+    vb.memory = "3572"
+    vb.cpus = "2"
+  end
+
+  # Manager Node
+  config.vm.define "manager01" do |manager|
+    manager.vm.hostname = "manager01"
+    manager.vm.network "private_network", ip: "192.168.56.10"
+    manager.vm.network  "forwarded_port", guest: 9090, host: 9090
+    manager.vm.network  "forwarded_port", guest: 3000, host: 3000
+    manager.vm.provision "shell", path: "./scripts/setup.sh"
+    manager.vm.provision "shell", path: "./scripts/swarm_init.sh"
+    
+
+  end
+
+  # Worker 01
+  config.vm.define "worker01" do |worker|
+    worker.vm.hostname = "worker01"
+    worker.vm.network "private_network", ip: "192.168.56.11"
+    worker.vm.provision "shell", path: "./scripts/setup.sh"
+    worker.vm.provision "shell", path: "./scripts/swarm_join_w1.sh"
+  end
+
+  # Worker 02
+  config.vm.define "worker02" do |worker|
+    worker.vm.hostname = "worker02"
+    worker.vm.network "private_network", ip: "192.168.56.12"
+    worker.vm.provision "shell", path: "./scripts/setup.sh"
+    worker.vm.provision "shell", path: "./scripts/swarm_join_w2.sh"
+  end
+end

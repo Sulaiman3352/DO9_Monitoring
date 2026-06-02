@@ -1,0 +1,38 @@
+global:
+  resolve_timeout: 5m
+
+route:
+  group_by: ['alertname']
+  group_wait: 30s
+  group_interval: 5m
+  repeat_interval: 1h
+  receiver: 'all-notifications'
+
+receivers:
+  - name: 'all-notifications'
+    email_configs:
+      - to: 'sulaiman3352@gmail.com'
+        from: 'sulaiman3352@yandex.ru'
+        smarthost: 'smtp.yandex.ru:465'
+        auth_username: 'sulaiman3352@yandex.ru'
+        auth_password: 'password'
+        require_tls: true
+        send_resolved: true
+
+    telegram_configs:
+      - bot_token: 'token'
+        chat_id: 439932381
+        message: |
+          {{ range .Alerts }}
+          *Alert:* {{ .Annotations.summary }}
+          *Description:* {{ .Annotations.description }}
+          *Severity:* {{ .Labels.severity }}
+          {{ end }}
+        send_resolved: true
+
+inhibit_rules:
+  - source_match:
+      severity: 'critical'
+    target_match:
+      severity: 'warning'
+    equal: ['alertname']

@@ -1,0 +1,99 @@
+global:
+  scrape_interval: 15s # How often Prometheus asks for metrics (every 15 seconds is standard)
+  evaluation_interval: 15s
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: ['alertmanager:9093']
+
+rule_files:
+  - /etc/prometheus/alert-rules.yml
+
+
+scrape_configs:
+  # 1. Scrape the Gateway Service
+  - job_name: 'gateway-service'
+    metrics_path: '/actuator/prometheus' # The default Spring Boot Actuator path
+    static_configs:
+      - targets: ['gateway:8087'] 
+
+  # 2. Scrape the Booking Service
+  - job_name: 'booking-service'
+    metrics_path: '/actuator/prometheus'
+    static_configs:
+      - targets: ['booking:8083'] 
+
+  # 3. Scrape the Report Service (Where RabbitMQ processing likely happens)
+  - job_name: 'report-service'
+    metrics_path: '/actuator/prometheus'
+    static_configs:
+      - targets: ['report:8086']
+
+  # 4. Scrape the Session/Auth Service
+  - job_name: 'session-service'
+    metrics_path: '/actuator/prometheus'
+    static_configs:
+      - targets: ['session:8081']
+
+  # (Optional) Add your other services so you have a complete dashboard
+  - job_name: 'hotel-service'
+    metrics_path: '/actuator/prometheus'
+    static_configs:
+      - targets: ['hotel:8082']
+
+  - job_name: 'payment-service'
+    metrics_path: '/actuator/prometheus'
+    static_configs:
+      - targets: ['payment:8084']
+
+  - job_name: 'loyalty-service'
+    metrics_path: '/actuator/prometheus'
+    static_configs:
+      - targets: ['loyalty:8085']
+
+# --- NEW EXPORTERS ---
+  # 1. Scrape the host machine stats
+  - job_name: 'node-exporter' #label
+    static_configs:
+      - targets: ['node_exporter:9100']
+
+  # 2. Scrape the Docker container stats
+  - job_name: 'cadvisor'
+    static_configs:
+      - targets: ['cadvisor:8080']
+
+  # 3. Ping the Gateway to make sure it is alive
+  - job_name: 'blackbox-ping'
+    metrics_path: /probe
+    params:
+      module: [http_2xx] # Send an HTTP request. If the app replies with a 200, the test passes.
+    static_configs:
+      - targets:
+        - http://gateway:8087/actuator/health # The actual URL we want to test
+        - https://www.google.com # google.com availability
+    relabel_configs:
+      # Step 1: Pass the target URL as a parameter
+      # Takes the URL from your target list (http://gateway:8087/actuator/health) 
+      # and assigns it to a URL parameter called "target".
+      - source_labels: [__address__]
+        target_label: __param_target
+        
+      # Step 2: Make the metrics readable
+      # Takes that same Gateway URL and saves it as the "instance" label.
+      # When you look at Grafana later, the charts will clearly show 
+      # "http://gateway..." instead of just saying "blackbox_exporter".
+      - source_labels: [__param_target]
+        target_label: instance
+        
+      # Step 3: The actual bait-and-switch!
+      # This overwrites the actual address Prometheus is about to connect to. 
+      # Instead of Prometheus trying to pull metrics FROM the Gateway, 
+      # it forces Prometheus to send its request to the blackbox_exporter container.
+      - target_label: __address__
+        replacement: blackbox_exporter:9115 # The address of the blackbox exporter itself
+        
+  # Task 3 
+  - job_name: 'alertmanager'
+    static_configs:
+      - targets: ['alertmanager:9093']
